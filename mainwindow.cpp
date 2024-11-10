@@ -7,8 +7,7 @@
 #include <QVBoxLayout>
 #include <QTableWidget>
 #include <QHeaderView>
-
-
+#include <SignalEmitter.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -99,12 +98,16 @@ void MainWindow::setupUI()
     // 添加所有组件到主布局
     mainLayout->addLayout(controlLayout);
     mainLayout->addWidget(splitter);
-//    设置连接
-    connect(clearButton, &QPushButton::clicked, this, &MainWindow::clearPacketTable);
-    connect(deviceComboBox, &QComboBox::currentTextChanged, this, &MainWindow::onDeviceSelected);
     // 设置窗口属性
     setWindowTitle("网络包捕获分析器");
     resize(1200, 800);
+//    设置连接
+    connect(clearButton, &QPushButton::clicked, this, &MainWindow::clearPacketTable);
+    connect(deviceComboBox, &QComboBox::currentTextChanged, this, &MainWindow::onDeviceSelected);
+    connect(captureButton, &QRadioButton::toggled, this, [deviceComboBox](bool checked) {
+        // 如果捕获按钮被选中，禁用 QComboBox
+        deviceComboBox->setEnabled(!checked);  // 按下时禁用，未按下时启用
+    });
 }
 
 void MainWindow::setupPacketTable()
@@ -245,7 +248,7 @@ void MainWindow::onPacketSelected(int row, int column)
 void MainWindow::onDeviceSelected(const QString &text)
 {
     if (captureThread->Capturing()) {
-        emit onErrorOccurred("正在捕获数据包，请先停止捕获");
+        onErrorOccurred("正在捕获数据包，请先停止捕获");
         return;
     }
     QString deviceName = text.split(" (").first();
@@ -262,6 +265,8 @@ void MainWindow::initSignalAndSlots()
 {
     connect(captureButton, &QRadioButton::toggled, this, &MainWindow::onCaptureStateChanged);
     connect(packetTable, &QTableWidget::cellClicked, this, &MainWindow::onPacketSelected);
-    connect(captureThread, &PacketCapture::errorOccurred, this, &MainWindow::onErrorOccurred);
-    connect(captureThread, &PacketCapture::newPacketCaptured, this, &MainWindow::updatePacketInfo);
+//    connect(captureThread, &PacketCapture::errorOccurred, this, &MainWindow::onErrorOccurred);
+//    connect(captureThread, &PacketCapture::newPacketCaptured, this, &MainWindow::updatePacketInfo);
+    connect(&SignalEmitter::getInstance(), &SignalEmitter::errorOccurred, this, &MainWindow::onErrorOccurred);
+    connect(&SignalEmitter::getInstance(), &SignalEmitter::packetCaptured, this, &MainWindow::updatePacketInfo);
 }

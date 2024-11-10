@@ -29,7 +29,7 @@ public:
      */
     static void pcap_callback(u_char *user, const struct pcap_pkthdr *pkthdr, const u_char *packet);
 
-    QStringList getDeviceList();
+    static QStringList getDeviceList();
     void setDevice(const QString &deviceName);
     void startCapture();
     void stopCapture();
@@ -57,8 +57,8 @@ private:
 
     void packetHandler(const pcap_pkthdr *, const u_char *);
 signals:
-    void newPacketCaptured(const PacketInfo &packet);
-    void errorOccurred(const QString &error);
+//    void newPacketCaptured(const PacketInfo &packet);
+//    void errorOccurred(const QString &error);
 public slots:
     void onCaptureStateChanged(bool start);
 };

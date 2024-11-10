@@ -7,6 +7,8 @@
 #include <QDebug>
 #include <packet_structures.h>
 #include <QMutexLocker>
+#include <SignalEmitter.h>
+
 PacketCapture::PacketCapture(QObject *parent) : QThread(parent), handle(nullptr), isCapturing(false) {
     // 初始化 Winsock 库（在 Windows 下需要初始化）
     WSADATA wsaData;
@@ -32,7 +34,8 @@ void PacketCapture::startCapture() {
 
     if (isCapturing) return;
     if (currentDevice.isEmpty()) {
-        emit errorOccurred("No device selected");
+//        emit errorOccurred("No device selected");
+        SignalEmitter::getInstance().emitError("No device selected");
         return;
     }
     isCapturing = true;
@@ -111,9 +114,12 @@ void PacketCapture::run()
         BUFSIZ, 1, 1000, errbuf
         );
     if (!localHandle) {
-        emit errorOccurred(QString("Couldn't open device %1: %2")
-                               .arg(deviceCopy)
-                               .arg(errbuf));
+//        emit errorOccurred(QString("Couldn't open device %1: %2")
+//                               .arg(deviceCopy)
+//                               .arg(errbuf));
+        SignalEmitter::getInstance().emitError(QString("Couldn't open device %1: %2")
+                                                   .arg(deviceCopy)
+                                                   .arg(errbuf));
         return;
     }
 //    第一段加锁：将本地句柄赋值给共享变量handle
@@ -261,7 +267,8 @@ void PacketCapture::packetHandler(const pcap_pkthdr *header, const u_char *packe
         capturedPackets.append(packetInfo);
     }
 
-    emit newPacketCaptured(packetInfo);
+//    emit newPacketCaptured(packetInfo);
+    SignalEmitter::getInstance().emitPacketCaptured(packetInfo);
 }
 
 void PacketCapture::onCaptureStateChanged(bool start)
@@ -278,7 +285,8 @@ void PacketCapture::setDevice(const QString &deviceName)
 {
     QMutexLocker locker(&packetsMutex);
     if (isCapturing) {
-        emit errorOccurred("Cannot change device while capturing");
+//        emit errorOccurred("Cannot change device while capturing");
+        SignalEmitter::getInstance().emitError("Cannot change device while capturing");
         return;
     }
     currentDevice = deviceName;
@@ -300,7 +308,7 @@ QStringList PacketCapture::getDeviceList() {
     pcap_if_t *alldevs;
 
     if (pcap_findalldevs(&alldevs, errbuf) == -1) {
-        emit errorOccurred(QString("Error finding devices: %1").arg(errbuf));
+        SignalEmitter::getInstance().emitError(QString("Error finding devices: %1").arg(errbuf));
         return deviceList;
     }
 
@@ -310,6 +318,9 @@ QStringList PacketCapture::getDeviceList() {
     }
 
     pcap_freealldevs(alldevs);
+
+    // 使用 SignalEmitter 发射设备列表更新信号
+    SignalEmitter::getInstance().emitDeviceListUpdated(deviceList);
     return deviceList;
 }
 PacketInfo PacketCapture::parsePacket(const u_char *packet, int len)
