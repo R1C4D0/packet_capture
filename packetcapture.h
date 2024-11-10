@@ -47,13 +47,13 @@ private:
     QMutex packetsMutex;
     QMutex handleMutex;
 
-    PacketInfo parsePacket(const u_char *packet, int len);
-    QString getMacAddress(const u_char *addr);
-    QString getIpAddress(const u_char *addr);
-    void parseTcpPacket(const u_char *packet, PacketInfo &info);
-    void parseUdpPacket(const u_char *packet, PacketInfo &info);
-    void parseIcmpPacket(const u_char *packet, PacketInfo &info);
-    void parseArpPacket(const u_char *packet, PacketInfo &info);
+    static PacketInfo parsePacket(const u_char *packet, int len);
+    static QString getMacAddress(const u_char *addr);
+    static QString getIpAddress(const u_char *addr);
+    static void parseTcpPacket(const u_char *packet, PacketInfo &info);
+    static void parseUdpPacket(const u_char *packet, PacketInfo &info);
+    static void parseIcmpPacket(const u_char *packet, PacketInfo &info);
+    static void parseArpPacket(const u_char *packet, PacketInfo &info);
 
     void packetHandler(const pcap_pkthdr *, const u_char *);
 signals:
