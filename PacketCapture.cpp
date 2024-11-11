@@ -45,25 +45,30 @@ void PacketCapture::startCapture() {
 
 void PacketCapture::stopCapture()
 {
-    QMutexLocker locker(&packetsMutex);
-    if (!isCapturing) return;
-    isCapturing = false;
-    QMutexLocker handleLocker(&handleMutex);{
+    {
+        QMutexLocker locker(&packetsMutex);
+        if (!isCapturing) return;
+        isCapturing = false;
+    }
+    {
+        QMutexLocker handleLocker(&handleMutex);
 //        pcap_loop 需要使用 pcap_breakloop 来中断
         if (handle) {
             pcap_breakloop(handle);  // 这会导致 pcap_loop 返回
-            locker.unlock();
+            handleLocker.unlock();
             // 等待线程实际结束
             if (isRunning()) {
                 if (!wait(2000)) {  // 等待最多2秒
-                    terminate();
+                    terminate();//谨慎使用terminate
                     wait();
                 }
             }
 
-            locker.relock();
-            pcap_close(handle);
-            handle = nullptr;
+            handleLocker.relock();//重新加锁清理handle
+            if (handle) {//再次检查handle是否有效
+                pcap_close(handle);
+                handle = nullptr;
+            }
         }
     }
 }
@@ -107,6 +112,7 @@ void PacketCapture::run()
     QString deviceCopy;
     {
         QMutexLocker locker(&packetsMutex);
+        if (!Capturing()) return; //再次检查状态
         deviceCopy = currentDevice;  // 复制设备名，避免长时间持有锁
     }
     pcap_t* localHandle = pcap_open_live(
@@ -125,7 +131,11 @@ void PacketCapture::run()
 //    第一段加锁：将本地句柄赋值给共享变量handle
     {
 //        QMutexLocker locker(&packetsMutex);
-        QMutexLocker locker(&handleMutex);
+        QMutexLocker handlelocker(&handleMutex);
+        if (!isCapturing) {  // 再次检查状态
+            pcap_close(localHandle);
+            return;
+        }
         handle = localHandle;
     }
 
@@ -138,8 +148,9 @@ void PacketCapture::run()
 //    第二段加锁：清理handle
     {
 //        QMutexLocker locker(&packetsMutex);
-        QMutexLocker locker(&handleMutex);
-        if (handle == localHandle) {  // 如果handle 没有被其他地方修改时清理
+        QMutexLocker handlelocker(&handleMutex);
+        if (handle == localHandle) {
+            pcap_close(handle);
             handle = nullptr;
         }
     }
@@ -274,7 +285,9 @@ void PacketCapture::packetHandler(const pcap_pkthdr *header, const u_char *packe
 void PacketCapture::onCaptureStateChanged(bool start)
 {
     if (start) {
-        this->startCapture();
+        if (!isRunning()){
+            this->startCapture();
+        }
     } else {
         this->stopCapture();
     }
